@@ -80,8 +80,6 @@ int main()
 {
   uWS::Hub h;
 
-
-
   // MPC is initialized here!
   MPC mpc;
 
@@ -108,6 +106,14 @@ int main()
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
+
+          double test_steer_value = j[1]["steering_angle"];
+          double test_throttle_value = j[1]["throttle"];
+
+          cout << "================================== test_steer_value : " << test_steer_value << endl;
+          cout << "================================== test_throttle_value : " << test_throttle_value << endl;
+
+
 
           /*
           * TODO: Calculate steering angle and throttle using MPC.
@@ -142,15 +148,38 @@ int main()
           double py_local = 0;
           double psi_local = 0;
 
+          //converting mph to meter_p_s
+          double v_m_per_s=v* 0.44704;
+
+          // Predict state after latency
+          // x, y and psi are all zero after transformation above
+          //double pred_px = 0.0 + v_m_per_s * dt; // Since psi is zero, cos(0) = 1, can leave out
+          //double pred_py = 0.0; // Since sin(0) = 0, y stays as 0 (y + v * 0 * dt)
+          // //double pred_psi = 0.0 + v_m_per_s * -delta / Lf * dt;
+          //double pred_v = v_m_per_s + a * dt;
+          // // double pred_cte = cte + v * sin(epsi) * dt;
+          // // double pred_epsi = epsi + v * -delta / Lf * dt;
+
           // The cross track error is calculated by evaluating at polynomial at x, f(x)
           // and subtracting y.
           double cte = polyeval(coeffs, px_local) - py_local;
+
           // Due to the sign starting at 0, the orientation error is -f'(x).
           // derivative of coeffs[0] + coeffs[1] * x -> coeffs[1]
           double epsi = psi_local - atan(coeffs[1]);
 
           Eigen::VectorXd state(6);
-          state << px_local, py_local, psi_local, v, cte, epsi;
+
+          state << px_local, py_local, psi_local, v_m_per_s, cte, epsi;
+
+          cout << "-----------------------------------" << endl;
+          cout << "state: " << endl;
+          cout << state << endl;
+
+          cout << "ref path:"<< endl;
+          for (unsigned int i=0; i< ptsx_eig_local.size();  i++){
+            cout << i << " :x =  " << ptsx_eig_local[i] << " ,y= " << ptsy_eig_local[i] << endl;
+          }
 
           auto vars = mpc.Solve(state, coeffs);
 
@@ -161,17 +190,16 @@ int main()
           std::vector<double> mpc_delta;
           std::vector<double> mpc_a;
 
-
-  //To be update
-  size_t N = 25;
-  size_t x_start = 0;
-  size_t y_start = x_start + N;
-  size_t psi_start = y_start + N;
-  size_t v_start = psi_start + N;
-  size_t cte_start = v_start + N;
-  size_t epsi_start = cte_start + N;
-  size_t delta_start = epsi_start + N;
-  size_t a_start = delta_start + N - 1;
+          //To be update
+          size_t N = 40;
+          size_t x_start = 0;
+          size_t y_start = x_start + N;
+          size_t psi_start = y_start + N;
+          size_t v_start = psi_start + N;
+          size_t cte_start = v_start + N;
+          size_t epsi_start = cte_start + N;
+          size_t delta_start = epsi_start + N;
+          size_t a_start = delta_start + N - 1;
 
           for (unsigned int i = 0; i < N; i++)
           {
@@ -186,13 +214,26 @@ int main()
             }
           }
 
+          cout << "result path [x, y]:"<< endl;
+
+
+          for (unsigned int i=0; i< mpc_x.size();  i++){
+            cout << i << " :x= " << mpc_x[i] << " ,y= " << mpc_y[i] << endl;
+          }
+
+          for (unsigned int i=0; i< mpc_delta.size();  i++){
+            cout << i << " : delta:= " << mpc_delta[i]/deg2rad(25) << " , acc=" << mpc_a[i] << endl;
+          }
+
           std::cout << "var size = " << vars.size() << std::endl;
 
-          std::cout << "delta = " << mpc_delta[0] << std::endl;
-          std::cout << "a = " << mpc_a[0] << std::endl;
+          std::cout << "delta0 = " << mpc_delta[0] << std::endl;
+          std::cout << "delta1 = " << mpc_delta[1] << std::endl;
+          std::cout << "a0 = " << mpc_a[0] << std::endl;
+          std::cout << "a1 = " << mpc_a[1] << std::endl;
 
           steer_value = -1 * mpc_delta[0] / deg2rad(25);
-          throttle_value = vars[7];
+          throttle_value = mpc_a[0];
 
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
@@ -208,7 +249,8 @@ int main()
           vector<double> mpc_x_vals;
           vector<double> mpc_y_vals;
 
-          for (int i=0; i< mpc_x.size(); i++){
+          for (int i = 0; i < mpc_x.size(); i++)
+          {
             mpc_x_vals.push_back(mpc_x[i]);
             mpc_y_vals.push_back(mpc_y[i]);
           }
@@ -251,6 +293,10 @@ int main()
           // SUBMITTING.
           this_thread::sleep_for(chrono::milliseconds(100));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
+
+          //double test;
+
+          //cin >> test;
         }
       }
       else

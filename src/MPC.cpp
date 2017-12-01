@@ -6,10 +6,8 @@
 using CppAD::AD;
 
 // TODO: Set the timestep length and duration
-size_t N = 25;
-double dt = 0.05;
-
-
+size_t N = 40;
+double dt = 0.1;
 
 // This value assumes the model presented in the classroom is used.
 //
@@ -25,7 +23,26 @@ const double Lf = 2.67;
 
 // Both the reference cross track and orientation errors are 0.
 // The reference velocity is set to 40 mph.
-double ref_v = 40;
+double ref_v_mph = 20;
+double ref_v = ref_v_mph * 0.447;
+
+// Weights for the cost function for 10mph
+// double cte_w = 10;
+// double epsi_w = 2.0;
+// double v_w = 20.0;
+// double delta_w = 500.0;
+// double acc_w = 5.0;
+// double delta_dot_w = 50.0;
+// double acc_dot_w = 40.0;
+
+// Weights for the cost function for 10mph
+double cte_w = 10;
+double epsi_w = 2.0;
+double v_w = 4.0;
+double delta_w = 2500.0;
+double acc_w = 5.0;
+double delta_dot_w = 50.0;
+double acc_dot_w = 40.0;
 
 size_t x_start = 0;
 size_t y_start = x_start + N;
@@ -55,23 +72,23 @@ public:
     // The part of the cost based on the reference state.
     for (unsigned int t = 0; t < N; t++)
     {
-      fg[0] += CppAD::pow(vars[cte_start + t], 2);
-      fg[0] += CppAD::pow(vars[epsi_start + t], 2);
-      fg[0] += CppAD::pow(vars[v_start + t] - ref_v, 2);
+      fg[0] += cte_w * CppAD::pow(vars[cte_start + t], 2);
+      fg[0] += epsi_w * CppAD::pow(vars[epsi_start + t], 2);
+      fg[0] += v_w * CppAD::pow(vars[v_start + t] - ref_v, 2);
     }
 
     // Minimize the use of actuators.
     for (unsigned int t = 0; t < N - 1; t++)
     {
-      fg[0] += CppAD::pow(vars[delta_start + t], 2);
-      fg[0] += CppAD::pow(vars[a_start + t], 2);
+      fg[0] += delta_w * CppAD::pow(vars[delta_start + t], 2);
+      fg[0] += acc_w * CppAD::pow(vars[a_start + t], 2);
     }
 
     // Minimize the value gap between sequential actuations.
     for (unsigned int t = 0; t < N - 2; t++)
     {
-      fg[0] += CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
-      fg[0] += CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
+      fg[0] += delta_dot_w * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
+      fg[0] += acc_dot_w * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
     }
 
     //
@@ -119,14 +136,6 @@ public:
 
       // Here's `x` to get you started.
       // The idea here is to constraint this value to be 0.
-      //
-      // Recall the equations for the model:
-      // x_[t+1] = x[t] + v[t] * cos(psi[t]) * dt
-      // y_[t+1] = y[t] + v[t] * sin(psi[t]) * dt
-      // psi_[t+1] = psi[t] + v[t] / Lf * delta[t] * dt
-      // v_[t+1] = v[t] + a[t] * dt
-      // cte[t+1] = f(x[t]) - y[t] + v[t] * sin(epsi[t]) * dt
-      // epsi[t+1] = psi[t] - psides[t] + v[t] * delta[t] / Lf * dt
       fg[1 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
       fg[1 + y_start + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * dt);
       fg[1 + psi_start + t] = psi1 - (psi0 + v0 * delta0 / Lf * dt);
@@ -208,6 +217,14 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs)
     vars_upperbound[i] = 1.0;
   }
 
+  // velocity upper and lower limits.
+  // NOTE: Feel free to change this to something else.
+  // for (unsigned int i = v_start; i < cte_start; i++)
+  // {
+  //   vars_lowerbound[i] = 0;
+  //   vars_upperbound[i] = ref_v;
+  // }
+
   // Lower and upper limits for the constraints
   // Should be 0 besides initial state.
   Dvector constraints_lowerbound(n_constraints);
@@ -273,13 +290,14 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs)
   //
   // {...} is shorthand for creating a vector, so auto x1 = {1.0,2.0}
   // creates a 2 element double vector.
-  std::cout << "solution.x size = " << solution.x.size() << std::endl;
+  //std::cout << "solution.x size = " << solution.x.size() << std::endl;
   // return {solution.x[x_start + 1], solution.x[y_start + 1],
   //         solution.x[psi_start + 1], solution.x[v_start + 1],
   //         solution.x[cte_start + 1], solution.x[epsi_start + 1],
   //         solution.x[delta_start], solution.x[a_start]};
   vector<double> mpc_solution;
-  for (unsigned int i = 0; i< solution.x.size(); i++){
+  for (unsigned int i = 0; i < solution.x.size(); i++)
+  {
     mpc_solution.push_back(solution.x[i]);
   }
 

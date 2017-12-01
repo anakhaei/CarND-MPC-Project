@@ -12,9 +12,14 @@ void rotate(const double &in_x, const double &in_y, double &out_x,
 void GlobalToLocal(const double &veh_x, const double &veh_y,
                    const double &veh_psi, const double &in_x,
                    const double &in_y, double &out_x, double &out_y) {
-  double delta_x = in_x - veh_x;
-  double delta_y = in_y - veh_y;
-  rotate(delta_x, delta_y, out_x, out_y, -veh_psi);
+//   double delta_x = in_x - veh_x;
+//   double delta_y = in_y - veh_y;
+//   rotate(delta_x, delta_y, out_x, out_y, -veh_psi);
+  double s = sin(veh_psi);
+  double c = cos(veh_psi);
+
+  out_x= in_x*c+in_y*s -veh_x*c - veh_y*s;
+  out_y= -in_x*s + in_y*c + veh_x*s - veh_y*c;
 }
 
 void GlobalToLocal(const double &veh_x, const double &veh_y,
