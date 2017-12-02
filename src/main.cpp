@@ -13,6 +13,9 @@
 // for convenience
 using json = nlohmann::json;
 
+// This is the length from front to CoG that has a similar radius.
+const double Lf = 2.67;
+
 // For converting back and forth between radians and degrees.
 constexpr double pi() { return M_PI; }
 double deg2rad(double x) { return x * pi() / 180; }
@@ -107,28 +110,27 @@ int main()
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
 
-          double test_steer_value = j[1]["steering_angle"];
-          double test_throttle_value = j[1]["throttle"];
+          double steer_value = j[1]["steering_angle"];
+          double throttle_value = j[1]["throttle"];
 
-          cout << "================================== test_steer_value : " << test_steer_value << endl;
-          cout << "================================== test_throttle_value : " << test_throttle_value << endl;
+          //converting mph to meter_p_s
+          double v_m_per_s=v* 0.44704;
 
+          // Predict state after latency
+          double latency = 0.1;
+          double pred_px = px + v_m_per_s * CppAD::cos(psi) * latency;
+          double pred_py = py + v_m_per_s * CppAD::sin(psi) * latency;
+          double pred_psi = psi + v_m_per_s * steer_value / Lf * latency; 
+          double pred_v = v_m_per_s + throttle_value * latency; 
 
-
-          /*
-          * TODO: Calculate steering angle and throttle using MPC.
-          *
-          * Both are in between [-1, 1].
-          *
-          */
-          double steer_value;
-          double throttle_value;
+          // The cross track error is calculated by evaluating at polynomial at x, f(x)
+          // and subtracting y.
 
           //converting global reference to local
           vector<double> ptsx_local;
           vector<double> ptsy_local;
 
-          GlobalToLocal(px, py, psi, ptsx, ptsy, ptsx_local, ptsy_local);
+          GlobalToLocal(pred_px, pred_py, pred_psi, ptsx, ptsy, ptsx_local, ptsy_local);
 
           Eigen::VectorXd ptsx_eig_local(ptsx.size());
           Eigen::VectorXd ptsy_eig_local(ptsx.size());
@@ -144,37 +146,20 @@ int main()
           auto coeffs = polyfit(ptsx_eig_local, ptsy_eig_local, 3);
 
           //converting global telemetry to local:
-          double px_local = 0;
-          double py_local = 0;
-          double psi_local = 0;
+          double pred_px_local = 0;
+          double pred_py_local = 0;
+          double pred_psi_local = 0;
 
-          //converting mph to meter_p_s
-          double v_m_per_s=v* 0.44704;
 
-          // Predict state after latency
-          // x, y and psi are all zero after transformation above
-          //double pred_px = 0.0 + v_m_per_s * dt; // Since psi is zero, cos(0) = 1, can leave out
-          //double pred_py = 0.0; // Since sin(0) = 0, y stays as 0 (y + v * 0 * dt)
-          // //double pred_psi = 0.0 + v_m_per_s * -delta / Lf * dt;
-          //double pred_v = v_m_per_s + a * dt;
-          // // double pred_cte = cte + v * sin(epsi) * dt;
-          // // double pred_epsi = epsi + v * -delta / Lf * dt;
+          double pred_cte = polyeval(coeffs, pred_px_local) - pred_py_local;
 
-          // The cross track error is calculated by evaluating at polynomial at x, f(x)
-          // and subtracting y.
-          double cte = polyeval(coeffs, px_local) - py_local;
-
-          // Due to the sign starting at 0, the orientation error is -f'(x).
+          // Due to the sign starting at 0, the orientation error is -f'(x). (toBeChecked)
           // derivative of coeffs[0] + coeffs[1] * x -> coeffs[1]
-          double epsi = psi_local - atan(coeffs[1]);
+          double pred_epsi = pred_psi_local - atan(coeffs[1]);
 
           Eigen::VectorXd state(6);
 
-          state << px_local, py_local, psi_local, v_m_per_s, cte, epsi;
-
-          cout << "-----------------------------------" << endl;
-          cout << "state: " << endl;
-          cout << state << endl;
+          state << pred_px_local, pred_py_local, pred_psi_local, pred_v, pred_cte, pred_epsi;
 
           cout << "ref path:"<< endl;
           for (unsigned int i=0; i< ptsx_eig_local.size();  i++){
@@ -225,13 +210,6 @@ int main()
             cout << i << " : delta:= " << mpc_delta[i]/deg2rad(25) << " , acc=" << mpc_a[i] << endl;
           }
 
-          std::cout << "var size = " << vars.size() << std::endl;
-
-          std::cout << "delta0 = " << mpc_delta[0] << std::endl;
-          std::cout << "delta1 = " << mpc_delta[1] << std::endl;
-          std::cout << "a0 = " << mpc_a[0] << std::endl;
-          std::cout << "a1 = " << mpc_a[1] << std::endl;
-
           steer_value = -1 * mpc_delta[0] / deg2rad(25);
           throttle_value = mpc_a[0];
 
@@ -241,9 +219,6 @@ int main()
 
           msgJson["steering_angle"] = steer_value;
           msgJson["throttle"] = throttle_value;
-
-          //msgJson["steering_angle"] = 0;
-          //msgJson["throttle"] = 0;
 
           //Display the MPC predicted trajectory
           vector<double> mpc_x_vals;

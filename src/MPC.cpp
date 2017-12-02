@@ -35,7 +35,7 @@ double ref_v = ref_v_mph * 0.447;
 // double delta_dot_w = 50.0;
 // double acc_dot_w = 40.0;
 
-// Weights for the cost function for 10mph
+// Weights for the cost function for 20mph
 double cte_w = 10;
 double epsi_w = 2.0;
 double v_w = 4.0;
