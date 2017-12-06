@@ -113,6 +113,8 @@ int main()
           double steer_value = j[1]["steering_angle"];
           double throttle_value = j[1]["throttle"];
 
+          cout << "px="<<px<<", py="<< py<<", psi=" <<psi << ", v=" <<v<< ", steer_value" <<steer_value  << ", throttle_value" << throttle_value << endl;
+
           //converting mph to meter_p_s
           double v_m_per_s=v* 0.44704;
 
@@ -161,10 +163,10 @@ int main()
 
           state << pred_px_local, pred_py_local, pred_psi_local, pred_v, pred_cte, pred_epsi;
 
-          cout << "ref path:"<< endl;
-          for (unsigned int i=0; i< ptsx_eig_local.size();  i++){
-            cout << i << " :x =  " << ptsx_eig_local[i] << " ,y= " << ptsy_eig_local[i] << endl;
-          }
+          // cout << "ref path:"<< endl;
+          // for (unsigned int i=0; i< ptsx_eig_local.size();  i++){
+          //   cout << i << " :x =  " << ptsx_eig_local[i] << " ,y= " << ptsy_eig_local[i] << endl;
+          // }
 
           auto vars = mpc.Solve(state, coeffs);
 
@@ -199,19 +201,21 @@ int main()
             }
           }
 
-          cout << "result path [x, y]:"<< endl;
+          // cout << "result path [x, y]:"<< endl;
 
 
-          for (unsigned int i=0; i< mpc_x.size();  i++){
-            cout << i << " :x= " << mpc_x[i] << " ,y= " << mpc_y[i] << endl;
-          }
+          // for (unsigned int i=0; i< mpc_x.size();  i++){
+          //   cout << i << " :x= " << mpc_x[i] << " ,y= " << mpc_y[i] << endl;
+          // }
 
-          for (unsigned int i=0; i< mpc_delta.size();  i++){
-            cout << i << " : delta:= " << mpc_delta[i]/deg2rad(25) << " , acc=" << mpc_a[i] << endl;
-          }
+          // for (unsigned int i=0; i< mpc_delta.size();  i++){
+          //   cout << i << " : delta:= " << mpc_delta[i]/deg2rad(25) << " , acc=" << mpc_a[i] << endl;
+          // }
 
-          steer_value = -1 * mpc_delta[0] / deg2rad(25);
-          throttle_value = mpc_a[0];
+          //steer_value = -1 * mpc_delta[0] / deg2rad(25);
+          //throttle_value = mpc_a[0];
+          steer_value = 0;
+          throttle_value = 0.1;
 
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
@@ -256,7 +260,7 @@ int main()
           msgJson["next_y"] = next_y_vals;
 
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
-          std::cout << msg << std::endl;
+          //std::cout << msg << std::endl;
           // Latency
           // The purpose is to mimic real driving conditions where
           // the car does actuate the commands instantly.
@@ -269,9 +273,6 @@ int main()
           this_thread::sleep_for(chrono::milliseconds(100));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
 
-          //double test;
-
-          //cin >> test;
         }
       }
       else
