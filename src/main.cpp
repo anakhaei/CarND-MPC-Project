@@ -92,7 +92,7 @@ int main()
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
     string sdata = string(data).substr(0, length);
-    cout << sdata << endl;
+    //cout << sdata << endl;
     if (sdata.size() > 2 && sdata[0] == '4' && sdata[1] == '2')
     {
       string s = hasData(sdata);
@@ -113,7 +113,6 @@ int main()
           double steer_value = j[1]["steering_angle"];
           double throttle_value = j[1]["throttle"];
 
-          cout << "px="<<px<<", py="<< py<<", psi=" <<psi << ", v=" <<v<< ", steer_value" <<steer_value  << ", throttle_value" << throttle_value << endl;
 
           //converting mph to meter_p_s
           double v_m_per_s=v* 0.44704;
@@ -122,8 +121,11 @@ int main()
           double latency = 0.1;
           double pred_px = px + v_m_per_s * CppAD::cos(psi) * latency;
           double pred_py = py + v_m_per_s * CppAD::sin(psi) * latency;
-          double pred_psi = psi + v_m_per_s * steer_value / Lf * latency; 
+          double pred_psi = psi - v_m_per_s * steer_value * deg2rad(25) / Lf * latency; 
           double pred_v = v_m_per_s + throttle_value * latency; 
+
+          cout << "px="<<px<< ",pred_px="<< pred_px <<", py="<< py<< ", pred_py=" << pred_py << ", psi=" <<psi << ", pred_psi="<< pred_psi <<", v=" <<v<< ", steer_value=" <<steer_value  << ", throttle_value=" << throttle_value << endl;
+
 
           // The cross track error is calculated by evaluating at polynomial at x, f(x)
           // and subtracting y.
@@ -212,10 +214,10 @@ int main()
           //   cout << i << " : delta:= " << mpc_delta[i]/deg2rad(25) << " , acc=" << mpc_a[i] << endl;
           // }
 
-          //steer_value = -1 * mpc_delta[0] / deg2rad(25);
-          //throttle_value = mpc_a[0];
-          steer_value = 0;
-          throttle_value = 0.1;
+          steer_value = -1 * mpc_delta[0] / deg2rad(25);
+          throttle_value = mpc_a[0];
+          //steer_value = 0;
+          //throttle_value = 0.1;
 
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
@@ -225,20 +227,30 @@ int main()
           msgJson["throttle"] = throttle_value;
 
           //Display the MPC predicted trajectory
-          vector<double> mpc_x_vals;
-          vector<double> mpc_y_vals;
+          vector<double> mpc_x_vals_in_pred_frame;
+          vector<double> mpc_y_vals_in_pred_frame;
 
           for (int i = 0; i < mpc_x.size(); i++)
           {
-            mpc_x_vals.push_back(mpc_x[i]);
-            mpc_y_vals.push_back(mpc_y[i]);
+            mpc_x_vals_in_pred_frame.push_back(mpc_x[i]);
+            mpc_y_vals_in_pred_frame.push_back(mpc_y[i]);
           }
+
+          vector<double> mpc_x_vals_in_global_frame;
+          vector<double> mpc_y_vals_in_global_frame;
+
+          LocalToGlobal(pred_px, pred_py, pred_psi, mpc_x_vals_in_pred_frame , mpc_y_vals_in_pred_frame, mpc_x_vals_in_global_frame, mpc_y_vals_in_global_frame);
+
+          vector<double> mpc_x_vals_in_actual_frame;
+          vector<double> mpc_y_vals_in_actual_frame;
+
+          GlobalToLocal (px, py, psi, mpc_x_vals_in_global_frame, mpc_y_vals_in_global_frame, mpc_x_vals_in_actual_frame, mpc_y_vals_in_actual_frame );
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
 
-          msgJson["mpc_x"] = mpc_x_vals;
-          msgJson["mpc_y"] = mpc_y_vals;
+          msgJson["mpc_x"] = mpc_x_vals_in_actual_frame;
+          msgJson["mpc_y"] = mpc_y_vals_in_actual_frame;
 
           //Display the waypoints/reference line
           vector<double> next_x_vals;
