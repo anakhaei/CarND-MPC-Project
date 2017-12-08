@@ -27,10 +27,10 @@ I followed the instructions provided in the course to implement the controler. I
 
 ### The Model
 The same model as described in the course was used in this project. Here is the model:
-      x1 = (x0 + v0 * CppAD::cos(psi0) * dt)
-      y1 = (y0 + v0 * CppAD::sin(psi0) * dt)
-      psi1 = (psi0 + v0 * delta0 / Lf * dt)
-      v1 = (v0 + a0 * dt)
+* x1 = (x0 + v0 * CppAD::cos(psi0) * dt)
+* y1 = (y0 + v0 * CppAD::sin(psi0) * dt)
+* psi1 = (psi0 + v0 * delta0 / Lf * dt)
+* v1 = (v0 + a0 * dt)
 
 ### Timestep Length and Elapsed Duration (N & dt)
 I used 40 points with the dt of 0.1sec.
@@ -43,13 +43,13 @@ This was the most interesting part of the project. I used the same model as I us
 
 ### Cost Evaluation
 I used the following weights to evaluate the quality of the trajectory:
-      cte_w = 10;
-      epsi_w = 2.0;
-      v_w = 4.0;
-      delta_w = 2500.0;
-      acc_w = 5.0;
-      delta_dot_w = 50.0;
-      acc_dot_w = 40.0;
+* cte_w = 10;
+* epsi_w = 2.0;
+* v_w = 4.0;
+* delta_w = 2500.0;
+* acc_w = 5.0;
+* delta_dot_w = 50.0;
+* acc_dot_w = 40.0;
       
 ## Discussion
 I followed the instructions to the course to implement MPC algorithm. Dealing with latency was quite interesting step and in result, the vehicle successfully drives around the track. 
