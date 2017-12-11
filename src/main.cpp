@@ -4,8 +4,7 @@
 #include <iostream>
 #include <thread>
 #include <vector>
-#include "Eigen-3.3/Eigen/Core"
-#include "Eigen-3.3/Eigen/QR"
+
 #include "MPC.h"
 #include "tools.h"
 #include "json.hpp"
@@ -40,44 +39,7 @@ string hasData(string s)
   return "";
 }
 
-// Evaluate a polynomial.
-double polyeval(Eigen::VectorXd coeffs, double x)
-{
-  double result = 0.0;
-  for (int i = 0; i < coeffs.size(); i++)
-  {
-    result += coeffs[i] * pow(x, i);
-  }
-  return result;
-}
 
-// Fit a polynomial.
-// Adapted from
-// https://github.com/JuliaMath/Polynomials.jl/blob/master/src/Polynomials.jl#L676-L716
-Eigen::VectorXd polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals,
-                        int order)
-{
-  assert(xvals.size() == yvals.size());
-  assert(order >= 1 && order <= xvals.size() - 1);
-  Eigen::MatrixXd A(xvals.size(), order + 1);
-
-  for (int i = 0; i < xvals.size(); i++)
-  {
-    A(i, 0) = 1.0;
-  }
-
-  for (int j = 0; j < xvals.size(); j++)
-  {
-    for (int i = 0; i < order; i++)
-    {
-      A(j, i + 1) = A(j, i) * xvals(j);
-    }
-  }
-
-  auto Q = A.householderQr();
-  auto result = Q.solve(yvals);
-  return result;
-}
 
 int main()
 {
@@ -121,7 +83,7 @@ int main()
           double latency = 0.1;
           double pred_px = px + v_m_per_s * CppAD::cos(psi) * latency;
           double pred_py = py + v_m_per_s * CppAD::sin(psi) * latency;
-          double pred_psi = psi - v_m_per_s * steer_value * deg2rad(25) / Lf * latency; 
+          double pred_psi = psi - v_m_per_s * steer_value / Lf * latency; 
           double pred_v = v_m_per_s + throttle_value * latency; 
 
           cout << "px="<<px<< ",pred_px="<< pred_px <<", py="<< py<< ", pred_py=" << pred_py << ", psi=" <<psi << ", pred_psi="<< pred_psi <<", v=" <<v<< ", steer_value=" <<steer_value  << ", throttle_value=" << throttle_value << endl;
@@ -154,12 +116,22 @@ int main()
           double pred_py_local = 0;
           double pred_psi_local = 0;
 
+          // double min_v = 100;
+
+
+          // for (int i = 0; i<ptsx_local.size(); i++) {
+          //   if (velocityRef(coeffs, ptsx_local[i]) < min_v){
+          //     min_v = velocityRef(coeffs, ptsx_local[i]);
+          //   }
+          //   cout << "polyCurvature = " << polyCurvature (coeffs, ptsx_local[i]) << ", ve_ref = " << velocityRef(coeffs, ptsx_local[i]) << endl;
+          // }
+
 
           double pred_cte = polyeval(coeffs, pred_px_local) - pred_py_local;
 
           // Due to the sign starting at 0, the orientation error is -f'(x). (toBeChecked)
-          // derivative of coeffs[0] + coeffs[1] * x -> coeffs[1]
-          double pred_epsi = pred_psi_local - atan(coeffs[1]);
+          // derivative of coeffs[0] + coeffs[1] * x +coeffs[2] * x^2 + coeffs[3] * x^3 + -> coeffs[1] + 2* coeffs[2] * x + 3 * coeffs[1] * x^2
+          double pred_epsi = pred_psi_local - atan(coeffs[1]+2*coeffs[2]*pred_px_local + 3*coeffs[3]*pred_px_local*pred_px_local);
 
           Eigen::VectorXd state(6);
 
@@ -216,6 +188,7 @@ int main()
 
           steer_value = -1 * mpc_delta[0] / deg2rad(25);
           throttle_value = mpc_a[0];
+          cout << "mpc: steer_value = " << steer_value << ",throttle_value = " << throttle_value << endl; 
           //steer_value = 0;
           //throttle_value = 0.1;
 

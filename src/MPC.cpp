@@ -1,4 +1,5 @@
 #include "MPC.h"
+#include "tools.h"
 #include <cppad/cppad.hpp>
 #include <cppad/ipopt/solve.hpp>
 #include "Eigen-3.3/Eigen/Core"
@@ -23,7 +24,7 @@ const double Lf = 2.67;
 
 // Both the reference cross track and orientation errors are 0.
 // The reference velocity is set to 40 mph.
-double ref_v_mph = 30;
+double ref_v_mph = 40;
 double ref_v = ref_v_mph * 0.447;
 
 // Weights for the cost function for 10mph
@@ -72,8 +73,10 @@ public:
     // The part of the cost based on the reference state.
     for (unsigned int t = 0; t < N; t++)
     {
+      
       fg[0] += cte_w * CppAD::pow(vars[cte_start + t], 2);
       fg[0] += epsi_w * CppAD::pow(vars[epsi_start + t], 2);
+      //fg[0] += v_w * CppAD::pow(vars[v_start + t] - velocityRef(coeffs, vars[x_start + t]), 2);
       fg[0] += v_w * CppAD::pow(vars[v_start + t] - ref_v, 2);
     }
 
@@ -131,8 +134,8 @@ public:
       AD<double> delta0 = vars[delta_start + t - 1];
       AD<double> a0 = vars[a_start + t - 1];
 
-      AD<double> f0 = coeffs[0] + coeffs[1] * x0;
-      AD<double> psides0 = CppAD::atan(coeffs[1]);
+      AD<double> f0 = polyeval(coeffs, x0);
+      AD<double> psides0 = CppAD::atan(polyslope(coeffs, x0));
 
       // Here's `x` to get you started.
       // The idea here is to constraint this value to be 0.
@@ -140,10 +143,8 @@ public:
       fg[1 + y_start + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * dt);
       fg[1 + psi_start + t] = psi1 - (psi0 + v0 * delta0 / Lf * dt);
       fg[1 + v_start + t] = v1 - (v0 + a0 * dt);
-      fg[1 + cte_start + t] =
-          cte1 - ((f0 - y0) + (v0 * CppAD::sin(epsi0) * dt));
-      fg[1 + epsi_start + t] =
-          epsi1 - ((psi0 - psides0) + v0 * delta0 / Lf * dt);
+      fg[1 + cte_start + t] = cte1 - ((f0 - y0) + (v0 * CppAD::sin(epsi0) * dt));
+      fg[1 + epsi_start + t] = epsi1 - ((psi0 - psides0) + v0 * delta0 / Lf * dt);
     }
   }
 };
